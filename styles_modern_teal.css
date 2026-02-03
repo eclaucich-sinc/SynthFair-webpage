@@ -1,0 +1,182 @@
+/* Custom styles for SynthFair research log - Modern Teal Version */
+
+/* Page and typography improvements */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.7;
+    color: #333;
+}
+
+.quarto-title-block {
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    color: white;
+    padding: 3rem 2rem;
+    margin-bottom: 3rem;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.quarto-title-block .title {
+    color: white;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+/* Headings styling */
+h2 {
+    color: #0891b2;
+    font-weight: 700;
+    margin-top: 2.5rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 3px solid #06b6d4;
+}
+
+h3 {
+    color: #0e7490;
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+/* Paragraph and content spacing */
+p {
+    margin-bottom: 1.2rem;
+    text-align: justify;
+}
+
+/* List styling */
+ol, ul {
+    margin-bottom: 1.5rem;
+}
+
+li {
+    margin-bottom: 0.8rem;
+}
+
+li strong {
+    color: #0891b2;
+}
+
+/* Image styling */
+img {
+    border-radius: 8px;
+    box-shadow: 2px 0px 5px rgba(0, 0, 0, 0.15);
+    margin: 1.5rem auto;
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.figure {
+    margin: 2rem 0;
+}
+
+figcaption, .figure-caption {
+    font-size: 0.9rem;
+    color: #666;
+    font-style: italic;
+    text-align: center;
+    margin-top: 0.8rem;
+    line-height: 1.5;
+    padding: 0 1rem;
+}
+
+/* Code styling */
+code {
+    background-color: #f0fdfa;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: #0e7490;
+}
+
+/* Math styling */
+.katex {
+    font-size: 1.1em;
+}
+
+/* Table of contents */
+#TOC {
+    background-color: #f0fdfa;
+    border: 1px solid #ccfbf1;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+#TOC a {
+    color: #0891b2;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+#TOC a:hover {
+    color: #0e7490;
+}
+
+/* Content container */
+.quarto-container {
+    max-width: 1400px;
+}
+
+article {
+    max-width: 100%;
+}
+
+.page-columns {
+    max-width: 1400px;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Summary section styling */
+#summary {
+    background-color: #f0fdfa;
+    padding: 2rem;
+    border-radius: 10px;
+    border-left: 5px solid #06b6d4;
+    margin-top: 3rem;
+}
+
+/* Link styling */
+a {
+    color: #0891b2;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: #0e7490;
+    text-decoration: underline;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .quarto-title-block {
+        padding: 2rem 1rem;
+    }
+    
+    h2 {
+        font-size: 1.75rem;
+    }
+    
+    h3 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Print styles */
+@media print {
+    .quarto-title-block {
+        background: white;
+        color: black;
+    }
+    
+    h2, h3 {
+        color: black;
+    }
+}

@@ -1,0 +1,141 @@
+---
+title: "SynthFair: A Semi-Synthetic Medical Imaging Dataset to Propel Research on Bias Detection & Mitigation"
+---
+
+## Introduction
+
+This research aims to create a high-quality semi-synthetic chest X-ray dataset designed to improve overall model performance and fairness. By generating controlled demographic variations of existing medical images, we seek to address representation imbalances and enable better bias detection and mitigation in medical imaging models.
+
+
+## Synthetic Generation
+
+We first extracted demographic attributes (sex, race, and age) and clinical findings from each sample in the original dataset to construct a structured textual description. This text serves a dual purpose: it functions as a comprehensive image descriptor and acts as a conditioning prompt for generative models utilizing text encoders. Hereafter, we refer to this description as the "image prompt," noting that it represents the semantic basis for generation even when not strictly used as a direct input for all architectures.  
+
+To generate specific variations, we applied interventions to the original prompts, modifying one attribute at a time. Adopting the notation of causal intervention, these shifts are denoted as `do(attribute=value)`. As illustrated in [Figure X], a sample originally labeled as `sex=male` can be transformed via the intervention `do(sex=female)`. This approach yields five distinct variation groups (three for race and two for sex). For each target variation, we aimed to generate 1,000 synthetic images. Crucially, the source images for these generations were sampled exclusively from groups disjoint from the target class, ensuring that all synthetic outputs represent a true modification of the original demographic attribute.  
+
+The fidelity of the generated images was assessed using three independent classifiers, one for each demographic attribute []. A synthetic image is considered successfully generated only if it satisfies two conditions: (1) the target intervention is correctly predicted, and (2) all non-intervened attributes remain consistent with the original image. If any attribute fails this check, the generation is retried up to three times. If the prediction fails after three attempts, the prompt is discarded. Consequently, the final dataset size depends on the acceptance rate of this validation step, with a theoretical maximum of 5,000 images (5 groups × 1k samples). We evaluated this pipeline across three generative architectures: a Variational Autoencoder (VAE) producing counterfactuals, a diffusion model fine-tuned on MIMIC-CXR, and a DDIM inversion scheme applied to the counterfactual version of the latter.  
+
+![Pipeline for synthetic image generation. From a CXR dataset, prompts are built based on each sample's metadata. Then, different variations of these prompts are constructed to generate a new synthetic dataset using a generative model. For a generated image to be part of the new dataset, it must successfully pass the attribute check.](./imgs/pipeline_original.png)  
+
+
+
+## VAE
+
+To generate high-fidelity counterfactual images, we based the generation on Deep Structural Causal Models (DSCM). Unlike traditional approaches that only learn the statistical distribution of data, this model explicitly defines the causal relationships between demographic attributes (causes) and the medical image (effect) through a Structural Causal Model (SCM).
+
+The core architecture for the image component is a Hierarchical Variational Autoencoder (HVAE). We selected this architecture for its ability to compress the image into a probabilistic latent space, allowing us to disentangle the semantic attributes from the specific visual details of the patient.
+
+To generate a variation of an image while preserving the patient's unique identity, we utilize Pearl’s three-step ladder of causation. This process ensures that only the target attribute is modified, while the rest of the image's content remains consistent. The process is defined as follows:
+
+1. **Abduction (Inferring the specific context)**: The model takes the original image $X$ and passes it through the VAE encoder. The goal is to infer the posterior distribution of the "exogenous noise" $u$. In simpler terms, the model captures all the unique characteristics of the patient (such as bone structure, posture, or specific anatomical details) that are not explained by the demographic attributes. This noise represents the patient's visual identity.
+
+2. **Action (The intervention)**: We perform a causal intervention on the graph, denoted as $do(A=a')$. This step mathematically breaks the dependence on the original attribute, allowing us to simulate a hypothetical scenario.
+
+3. **Prediction (Generating the counterfactual)**: Finally, the VAE decoder generates a new image $X^*$ using the intervention defined in the Action step, but combined with the original exogenous noise $u$ recovered during the Abduction step. By reusing the original noise, the model ensures that the resulting image retains the specific anatomy and details of the original patient, changing only the visual features causally linked to the intervened attribute.
+
+An example of different counterfactuals generated from the same original image can be seen below.
+
+![Different prompt variations using the VAE generative model. All images passed the attribute check successfully.](./imgs/chexpert_vae_comparison.png)  
+
+
+![Hierarchical structure of the Variational Autoencoder (HVAE) used for image generation. The architecture consists of multiple hierarchical latent levels ($h_1, h_2, h_3$) initialized from $h_{\text{init}}$, where each level generates both demographic attribute representations ($\text{pa}_i$) and image-specific latent variables ($z_i$). This hierarchical decomposition flows downward through the red path to generate the final image $x$, allowing the model to disentangle demographic attributes from patient-specific visual characteristics at different levels of abstraction.](./imgs/vae_1.png)  
+
+![Structural Causal Model (SCM) for counterfactual generation showing the three-step intervention process. The diagram illustrates the causal relationships with exogenous variables ($U_{\text{pa}}, U_z, U_x$) that capture unexplained variation. The left path shows the original image generation: $\text{pa}_x \rightarrow x$, while the right path shows the counterfactual generation: $\tilde{\text{pa}}_x \rightarrow \tilde{x}$. The latent variables $z_{1:L}$ and $\tilde{z}_{1:L}$ represent the hierarchical latent space. During counterfactual generation, the intervention is applied to the demographic attribute ($\text{pa}_x \rightarrow \tilde{\text{pa}}_x$), while the exogenous noise variables ($U$) are reused to preserve patient-specific characteristics, ensuring that only the target demographic attribute changes while maintaining anatomical consistency.](./imgs/vae_2.png)
+
+
+
+### Resolution Analysis
+
+The model generates images at a low 192×192 resolution, while the demographic classifiers used for validation work at higher resolutions (299×299 and 320×320). This resolution mismatch means that the generated images from the HVAE model must undergo an upscaling process before the attribute check. To analyze whether these classifiers are sensitive to this resolution change—and to determine whether upscaling could potentially degrade image quality or classifier performance—we tested different variations of the original pipeline where we included different types of upscaling before the attribute check.
+
+![Modified pipeline that includes an upscaling of the generated images before going through the attribute check. This helps to evaluate how sensitive to image resolution the attribute check is.](./imgs/pipeline_modified.png)  
+
+
+First, we applied simple upscaling using LANCZOS interpolation to 512×512 resolution, followed by the EDSR model for 3× super-resolution upscaling (576×576).
+
+### Attribute check
+
+
+![Attribute check results for the three versions of the VAE model based on CheXpert (left) and MIMIC-CXR (right) metadata. Results show the percentage of generated images that successfully pass the validation for each demographic attribute. Three configurations are compared: (1) Original low-resolution VAE (192×192), (2) upscaling using LANCZOS interpolation (512×512), and (3) 3× super-resolution upscaling using EDSR (576×576). Higher bars indicate better attribute preservation and transformation accuracy.](./imgs/all_vae_check.png)  
+
+
+
+
+### Image Quality
+
+
+![](./imgs/chexpert_all_vae_fid.png)  
+
+![Fréchet distance comparison between the three VAE models for counterfactual generation using Inceptionv3 (left) and RadDINO (right) embeddings. Results are shown for CheXpert (top) and MIMIC-CXR (bottom) based generations. Lower values indicate better alignment with the original data distribution.](./imgs/roentgen_all_vae_fid.png)
+
+
+
+
+![UMAP projection visualizations comparing the latent space distributions of original CheXpert images (blue) versus VAE-generated images (red) across three different embedding spaces: sex prediction model from attribute check (top), Inceptionv3 (middle), and RadDINO (bottom). Closer overlap between distributions indicates better generation quality and realism. Each plot shows how well the synthetic images capture the statistical properties of the original dataset in different feature representations.](./imgs/chexpert_all_vae_density.png)  
+
+
+
+
+Based on these results, we concluded that upscaling the images is worthwhile and demonstrated that the VAE model produces high-quality images that can be upscaled without degrading their quality. The super-resolution approach using EDSR particularly improves the attribute check success rate while maintaining strong distributional alignment with the original dataset. The UMAP visualizations confirm that VAE-generated images occupy similar regions in the latent space as real images, indicating that the counterfactuals preserve realistic medical imaging characteristics.
+
+
+
+## Diffusion
+
+Differing from the VAE model where we applied direct counterfactuals to the original image, in this approach we focus on generating images by random sampling from noise. For this, we use the Roentgenv2 model that was trained specifically for medical image generation by fine-tuning Stable Diffusion with samples from MIMIC-CXR.
+
+![Architecture of the Roentgenv2 model, a fine-tuned version of Stable Diffusion specifically adapted for chest X-ray generation using MIMIC-CXR dataset. The model uses text conditioning to guide the diffusion process from random noise to realistic medical images.](./imgs/roentgen_architecture.png)
+
+Every image is generated by random sampling from noise, with the generation process primarily driven by the text prompt. This means that only the metadata from the original dataset is used, not the image itself. Multiple generations with the same prompt can produce different final states, resulting in diverse new images. As can be seen below, the generated images are completely different from the original images, since the original is not used during the generative process, resulting in very significant visual differences.
+
+![Comparison of different prompt variations using the Roentgenv2 diffusion model with random sampling. Unlike the VAE counterfactuals, these images are generated entirely from noise and show significant visual differences from the original images, as the generation process does not preserve patient-specific anatomical features.](./imgs/chexpert_dif_comparison.png)
+
+
+
+### Attribute check
+
+![Attribute check comparison between VAE counterfactual approach and diffusion random sampling approach for both CheXpert and MIMIC-CXR based generations. The bars show the percentage of generated images that successfully pass the demographic attribute validation for each target group.](./imgs/vae_dif_check.png)
+
+
+### Image Quality
+
+
+![](./imgs/chexpert_vae_dif_fid.png)  
+
+![Fréchet distance comparison between VAE counterfactual generation and diffusion random sampling using Inceptionv3 (left) and RadDINO (right) embeddings. Results are shown for CheXpert (top) and MIMIC-CXR (bottom) based generations. Lower values indicate better alignment with the original data distribution.](./imgs/roentgen_vae_dif_fid.png)
+
+![UMAP projection visualizations comparing the latent space distributions of original CheXpert images (blue) versus VAE- and diffusion- generated images (red) across three different embedding spaces: sex prediction model from attribute check (top), Inceptionv3 (middle), and RadDINO (bottom). Closer overlap between distributions indicates better generation quality and realism. Each plot shows how well the synthetic images capture the statistical properties of the original dataset in different feature representations.](./imgs/chexpert_vae_dif_density.png)  
+
+
+
+## DDIM
+
+While the Roentgenv2 diffusion model generates images through random sampling from noise, losing the connection to the original image structure, the DDIM (Denoising Diffusion Implicit Models) inversion approach offers a middle ground that combines the high visual fidelity of the diffusion model with the counterfactual nature of the VAE approach. This method enables us to generate variations that preserve more structural information from the original image while still leveraging the powerful generative capabilities of the Roentgenv2 model.
+
+The DDIM inversion process works in two main stages:
+
+1. **Inversion (Encoding to latent noise)**: Starting from a real image $X$ from the original dataset, we reverse the diffusion process to obtain a latent noise representation $z_0$. Unlike standard diffusion sampling that starts from pure random noise, DDIM inversion uses a deterministic process to trace back the specific noise configuration that would have generated an image similar to the input. This step essentially "encodes" the structural and anatomical information of the original patient into the latent space. The inversion is performed using the original image prompt (with the unmodified demographic attributes) to guide the reverse process.
+
+2. **Conditional generation (Decoding with intervention)**: Once we have the inverted latent representation $z_0$, we perform the forward diffusion sampling process, but now using a modified prompt with the intervened attribute, denoted as $do(\text{attribute}=\text{value}')$. The key insight is that by starting from the inverted noise rather than random noise, the generation process preserves the overall anatomical structure and specific patient characteristics from the original image, while the modified prompt guides the model to alter only the visual features associated with the target demographic attribute.
+
+This approach offers several advantages over pure random sampling: the generated counterfactuals maintain stronger anatomical coherence with the source image, preserve patient-specific details unrelated to the intervened attribute, and produce more consistent counterfactuals across different intervention attempts. However, the quality and faithfulness of the counterfactuals depend critically on two hyperparameters: the number of inversion steps and the classifier-free guidance scale, which controls the strength of the text conditioning during generation.
+
+We evaluated different configurations of these parameters to find the optimal balance between preserving the original image structure and successfully implementing the demographic intervention. The DDIM approach produces counterfactuals that are visually closer to the original image compared to random sampling, while still achieving successful attribute transformations. As shown below, different guidance scales (7.5 vs 15.5) produce different levels of attribute modification, with higher values creating more pronounced changes.
+
+![DDIM inversion counterfactual examples with 50 inversion steps (100% inversion) and classifier-free guidance scale of 7.5 and 15.5. The generated images show strong preservation of anatomical structure from the original image while successfully modifying the target demographic attribute. Higher guidance scale produces more pronounced attribute changes.](./imgs/chexpert_ddim_comparison.png)  
+
+
+### Attribute check
+
+![Comprehensive attribute check comparison across all three generative approaches: VAE counterfactuals, diffusion random sampling, and DDIM inversion. Results are shown for both CheXpert (left) and MIMIC-CXR (right) based generations. The bars represent the percentage of generated images that successfully pass demographic attribute validation.](./imgs/vae_dif_ddim_check.png)
+
+
+### Image quality
+
+![](./imgs/chexpert_vae_dif_ddim_fid.png)  
+
+![Fréchet distance comparison across all three generative approaches using Inceptionv3 (left) and RadDINO (right) embeddings. Results are shown for CheXpert (top) and MIMIC-CXR (bottom) based generations. Lower values indicate better alignment with the original data distribution.](./imgs/roentgen_vae_dif_ddim_fid.png)  
+
+
+
+![UMAP projection visualizations comparing the latent space distributions of original CheXpert images (blue) versus all three generative approaches (red) across three different embedding spaces: sex prediction model from attribute check (top), Inceptionv3 (middle), and RadDINO (bottom). Closer overlap between distributions indicates better generation quality and realism. Each plot shows how well the synthetic images capture the statistical properties of the original dataset in different feature representations.](./imgs/chexpert_vae_dif_ddim_density.png)
