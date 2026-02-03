@@ -1,2 +1,5 @@
 /.quarto/
 /_site/
+*.xcf
+/all_imgs
+**/*.quarto_ipynb
