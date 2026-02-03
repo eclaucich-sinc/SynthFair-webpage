@@ -170,6 +170,7 @@ window.Quarto = {
   <li><a href="#attribute-check-2" id="toc-attribute-check-2" class="nav-link" data-scroll-target="#attribute-check-2">Attribute Check</a></li>
   <li><a href="#image-quality-2" id="toc-image-quality-2" class="nav-link" data-scroll-target="#image-quality-2">Image Quality</a></li>
   </ul></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
   </ul>
 </nav>
 </nav>
@@ -206,8 +207,8 @@ window.Quarto = {
 <section id="synthetic-generation" class="level2">
 <h2 class="anchored" data-anchor-id="synthetic-generation">Synthetic Generation</h2>
 <p>We first extracted demographic attributes (sex, race, and age) and clinical findings from each sample in the original dataset to construct a structured textual description. This text serves a dual purpose: it functions as a comprehensive image descriptor and acts as a conditioning prompt for generative models utilizing text encoders. Hereafter, we refer to this description as the “image prompt,” noting that it represents the semantic basis for generation even when not strictly used as a direct input for all architectures.</p>
-<p>To generate specific variations, we applied interventions to the original prompts, modifying one attribute at a time. Adopting the notation of causal intervention, these shifts are denoted as <code>do(attribute=value)</code>. Examples of these shifts can be seen in <strong>Figure 1</strong>. This approach yields five distinct variation groups (three for race and two for sex). For each target variation, we aimed to generate 1,000 synthetic images. Crucially, the source images for these generations were sampled exclusively from groups disjoint from the target class, ensuring that all synthetic outputs represent a true modification of the original demographic attribute.</p>
-<p>The fidelity of the generated images was assessed using three independent classifiers, one for each demographic attribute [cite: torch xray vision]. A synthetic image is considered successfully generated only if it satisfies two conditions: (1) the target intervention is correctly predicted, and (2) all non-intervened attributes remain consistent with the original image. If any attribute fails this check, the generation is retried up to three times. If the prediction fails after three attempts, the prompt is discarded. This validation process is referred to as the <em>Attribute Check</em> module. Consequently, the final dataset size depends on the acceptance rate of this validation step, with a theoretical maximum of 5,000 images (5 groups × 1k samples). We evaluated this pipeline across three generative architectures: a Variational Autoencoder (VAE) producing counterfactuals [cite: VAE paper], a diffusion model fine-tuned on MIMIC-CXR (Roentgen v2 [cite: Roentgen paper]), and a DDIM inversion scheme applied to the counterfactual version of the latter [cite: DDIM paper]. An overview of the pipeline used in this work can be seen below.</p>
+<p>To generate specific variations, we applied interventions to the original prompts, modifying one attribute at a time. Adopting the notation of causal intervention, these shifts are denoted as <code>do(attribute=value)</code>. Examples of these shifts can be seen in Figure 1. This approach yields five distinct variation groups (three for race and two for sex). For each target variation, we aimed to generate 1,000 synthetic images. Crucially, the source images for these generations were sampled exclusively from groups disjoint from the target class, ensuring that all synthetic outputs represent a true modification of the original demographic attribute.</p>
+<p>The fidelity of the generated images was assessed using three independent classifiers, one for each demographic attribute <a href="#references">[1]</a>. A synthetic image is considered successfully generated only if it satisfies two conditions: (1) the target intervention is correctly predicted, and (2) all non-intervened attributes remain consistent with the original image. If any attribute fails this check, the generation is retried up to three times. If the prediction fails after three attempts, the prompt is discarded. This validation process is referred to as the <em>Attribute Check</em> module. Consequently, the final dataset size depends on the acceptance rate of this validation step, with a theoretical maximum of 5,000 images (5 groups × 1k samples). We evaluated this pipeline across three generative architectures: a Variational Autoencoder (VAE) producing counterfactuals <a href="#references">[2]</a>, a diffusion model fine-tuned on MIMIC-CXR (Roentgenv2 <a href="#references">[3]</a>), and a DDIM inversion scheme applied to the counterfactual version of the latter <a href="#references">[4]</a>. An overview of the pipeline used in this work can be seen below.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/pipeline_original.png" class="img-fluid figure-img"></p>
@@ -218,8 +219,8 @@ window.Quarto = {
 <section id="vae" class="level2">
 <h2 class="anchored" data-anchor-id="vae">VAE</h2>
 <p>To generate high-fidelity counterfactual images, we based the generation on Deep Structural Causal Models (DSCM). Unlike traditional approaches that only learn the statistical distribution of data, this model explicitly defines the causal relationships between demographic attributes (causes) and the medical image (effect) through a Structural Causal Model (SCM).</p>
-<p>The core architecture for the image component is a Hierarchical Variational Autoencoder (HVAE) (<strong>Figure 2</strong>). We selected this architecture for its ability to compress the image into a probabilistic latent space, allowing us to disentangle the semantic attributes from the specific visual details of the patient.</p>
-<p>To generate a variation of an image while preserving the patient’s unique identity, we utilize Pearl’s three-step ladder of causation (<strong>Figure 3</strong>). This process ensures that only the target attribute is modified, while the rest of the image’s content remains consistent. The process is defined as follows:</p>
+<p>The core architecture for the image component is a Hierarchical Variational Autoencoder (HVAE) (Figure 2). We selected this architecture for its ability to compress the image into a probabilistic latent space, allowing us to disentangle the semantic attributes from the specific visual details of the patient.</p>
+<p>To generate a variation of an image while preserving the patient’s unique identity, we utilize Pearl’s three-step ladder of causation (Figure 3). This process ensures that only the target attribute is modified, while the rest of the image’s content remains consistent. The process is defined as follows:</p>
 <ol type="1">
 <li><p><strong>Abduction (Inferring the specific context)</strong>: The model takes the original image <span class="math inline">X</span> and passes it through the VAE encoder. The goal is to infer the posterior distribution of the <em>exogenous noise</em> <span class="math inline">u</span>. In simpler terms, the model captures all the unique characteristics of the patient (such as bone structure, posture, or specific anatomical details) that are not explained by the demographic attributes. This noise represents the patient’s visual identity.</p></li>
 <li><p><strong>Action (The intervention)</strong>: We perform a causal intervention on the graph, denoted as <span class="math inline">do(A=a')</span>. This step mathematically breaks the dependence on the original attribute, allowing us to simulate a hypothetical scenario.</p></li>
@@ -251,10 +252,10 @@ window.Quarto = {
 <figcaption>Modified pipeline that includes an upscaling of the generated images before going through the attribute check. This helps to evaluate how sensitive to image resolution the attribute check is.</figcaption>
 </figure>
 </div>
-<p>First, we applied simple upscaling using LANCZOS interpolation [cite: LANCZOS ref] to 512×512 resolution (the same resolution that the Roentgen v2 diffusion model uses), followed by a 3× super-resolution upscaling to 576×576 using the EDSR model [cite: EDSR paper].</p>
+<p>First, we applied simple upscaling using LANCZOS interpolation to 512×512 resolution (the same resolution that the Roentgenv2 diffusion model uses), followed by a 3× super-resolution upscaling to 576×576 using the EDSR model <a href="#references">[5]</a>.</p>
 <section id="attribute-check" class="level3">
 <h3 class="anchored" data-anchor-id="attribute-check">Attribute Check</h3>
-<p>As noted before, the attribute check consists of three independent models trained for sex and race classification and age regression. In this module of the pipeline, a generated image goes through each model obtaining a prediction for the three attributes. One of these attributes is the one that is being shifted (denoted as <em>target group</em>). If all three attributes are predicted correctly on the synthetic image then it will be part of the new dataset and it will count toward the percentage passed attribute check. In <strong>Figure 4</strong> the attribute check results for each target group are shown for the VAE model and the different types of upscaling and for images generated from CheXpert [paper] and MIMIC-CXR [paper].</p>
+<p>As noted before, the attribute check consists of three independent models trained for sex and race classification and age regression. In this module of the pipeline, a generated image goes through each model obtaining a prediction for the three attributes. One of these attributes is the one that is being shifted (denoted as <em>target group</em>). If all three attributes are predicted correctly on the synthetic image then it will be part of the new dataset and it will count toward the percentage passed attribute check. In Figure 4 the attribute check results for each target group are shown for the VAE model and the different types of upscaling and for images generated from CheXpert <a href="#references">[6]</a> and MIMIC-CXR <a href="#references">[7]</a> metadata.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/all_vae_check.png" class="img-fluid figure-img"></p>
@@ -264,7 +265,7 @@ window.Quarto = {
 </section>
 <section id="image-quality" class="level3">
 <h3 class="anchored" data-anchor-id="image-quality">Image Quality</h3>
-<p>Even though the attribute check validation is a necessary process to ensure that the generated images follow the desired attributes, it does not clarify the quality of those generated images. For this reason, we computed the Fréchet Distance [cite: FID paper] for each group using Inceptionv3 [cite: Inception paper] and RadDINO [cite: RadDINO paper] latent space representations (<strong>Figure 5</strong>). This metric provides a more realistic measure of how similar the synthetic distributions are to the original distribution. The distance in the Inceptionv3 embeddings represents general characteristics of the images, as this model was trained on general images. On the other hand, the distance in the RadDINO embeddings reflects the quality of the images in terms of medical imaging characteristics.</p>
+<p>Even though the attribute check validation is a necessary process to ensure that the generated images follow the desired attributes, it does not clarify the quality of those generated images. For this reason, we computed the Fréchet Distance <a href="#references">[8]</a> for each group using Inceptionv3 <a href="#references">[9]</a> and RadDINO <a href="#references">[10]</a> latent space representations (Figure 5). This metric provides a more realistic measure of how similar the synthetic distributions are to the original distribution. The distance in the Inceptionv3 embeddings represents general characteristics of the images, as this model was trained on general images. On the other hand, the distance in the RadDINO embeddings reflects the quality of the images in terms of medical imaging characteristics.</p>
 <p><img src="./imgs/chexpert_all_vae_fid.png" class="img-fluid"></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -272,7 +273,7 @@ window.Quarto = {
 <figcaption>Figure 5. Fréchet distance comparison between the three VAE models for counterfactual generation using Inceptionv3 (left) and RadDINO (right) embeddings. Results are shown for CheXpert (top) and MIMIC-CXR (bottom) based generations. Lower values indicate better alignment with the original data distribution.</figcaption>
 </figure>
 </div>
-<p>Based on these results, we concluded that upscaling the images is worthwhile and demonstrated that the VAE model produces high-quality images that can be upscaled without degrading their quality. The super-resolution approach using EDSR particularly improves the attribute check success rate while maintaining strong distributional alignment with the original dataset. The UMAP visualizations (<strong>Figure 6</strong>) confirm that VAE-generated images occupy similar regions in the latent space as real images, indicating that the counterfactuals preserve realistic medical imaging characteristics.</p>
+<p>Based on these results, we concluded that upscaling the images is worthwhile and demonstrated that the VAE model produces high-quality images that can be upscaled without degrading their quality. The super-resolution approach using EDSR particularly improves the attribute check success rate while maintaining strong distributional alignment with the original dataset. The UMAP visualizations (Figure 6) confirm that VAE-generated images occupy similar regions in the latent space as real images, indicating that the counterfactuals preserve realistic medical imaging characteristics.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/chexpert_all_vae_density.png" class="img-fluid figure-img"></p>
@@ -283,23 +284,23 @@ window.Quarto = {
 </section>
 <section id="diffusion" class="level2">
 <h2 class="anchored" data-anchor-id="diffusion">Diffusion</h2>
-<p>Differing from the VAE model where we applied direct counterfactuals to the original image, in this approach we focus on generating images by random sampling from noise. For this, we use the Roentgen v2 model that was trained specifically for medical image generation by fine-tuning Stable Diffusion with samples from MIMIC-CXR. The architecture of this model can be seen in <strong>Figure 7</strong>.</p>
+<p>Differing from the VAE model where we applied direct counterfactuals to the original image, in this approach we focus on generating images by random sampling from noise. For this, we use the Roentgenv2 model that was trained specifically for medical image generation by fine-tuning Stable Diffusion with samples from MIMIC-CXR. The architecture of this model can be seen in Figure 7.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/roentgen_architecture.png" class="img-fluid figure-img"></p>
-<figcaption>Figure 7. Architecture of the Roentgen v2 model, a fine-tuned version of Stable Diffusion specifically adapted for chest X-ray generation using the MIMIC-CXR dataset. The model uses text conditioning to guide the diffusion process from random noise to realistic medical images.</figcaption>
+<figcaption>Figure 7. Architecture of the Roentgenv2 model, a fine-tuned version of Stable Diffusion specifically adapted for chest X-ray generation using the MIMIC-CXR dataset. The model uses text conditioning to guide the diffusion process from random noise to realistic medical images.</figcaption>
 </figure>
 </div>
-<p>Every image is generated by random sampling from noise, with the generation process primarily driven by the text prompt. This means that only the metadata from the original dataset is used, not the image itself. Multiple generations with the same prompt can produce different final states, resulting in diverse new images. As can be seen in the synthetic examples in <strong>Figure 8</strong>, the generated images are completely different from the original image since the original is not used during the generative process, resulting in very significant visual differences.</p>
+<p>Every image is generated by random sampling from noise, with the generation process primarily driven by the text prompt. This means that only the metadata from the original dataset is used, not the image itself. Multiple generations with the same prompt can produce different final states, resulting in diverse new images. As can be seen in the synthetic examples in Figure 8, the generated images are completely different from the original image since the original is not used during the generative process, resulting in very significant visual differences.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/chexpert_dif_comparison.png" class="img-fluid figure-img"></p>
-<figcaption>Figure 8. Comparison of different prompt variations using the Roentgen v2 diffusion model with random sampling. Unlike the VAE counterfactuals, these images are generated entirely from noise and show significant visual differences from the original images, as the generation process does not preserve patient-specific anatomical features.</figcaption>
+<figcaption>Figure 8. Comparison of different prompt variations using the Roentgenv2 diffusion model with random sampling. Unlike the VAE counterfactuals, these images are generated entirely from noise and show significant visual differences from the original images, as the generation process does not preserve patient-specific anatomical features.</figcaption>
 </figure>
 </div>
 <section id="attribute-check-1" class="level3">
 <h3 class="anchored" data-anchor-id="attribute-check-1">Attribute Check</h3>
-<p>The attribute check validation results show that the VAE-generated images have an overall higher success rate (<strong>Figure 9</strong>). The most significant discrepancy comes from the <em>Asian</em> target group, where the VAE struggles more than the diffusion model. It is worth noticing that even though the Roentgen v2 model was trained using the MIMIC-CXR images, it has a lower success rate on this dataset than the VAE model. This suggests that the latter model has better generalization for image generation.</p>
+<p>The attribute check validation results show that the VAE-generated images have an overall higher success rate (Figure 9). The most significant discrepancy comes from the <em>Asian</em> target group, where the VAE struggles more than the diffusion model. It is worth noticing that even though the Roentgenv2 model was trained using the MIMIC-CXR images, it has a lower success rate on this dataset than the VAE model. This suggests that the latter model has better generalization for image generation.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/vae_dif_check.png" class="img-fluid figure-img"></p>
@@ -309,7 +310,7 @@ window.Quarto = {
 </section>
 <section id="image-quality-1" class="level3">
 <h3 class="anchored" data-anchor-id="image-quality-1">Image Quality</h3>
-<p>By looking at the Fréchet distances (<strong>Figure 10</strong>), we further understand the differences between both generative models. The VAE model is far more accurate in terms of these distances, generating more reliable and realistic images than the Roentgen v2 model. These high distance values presented by the diffusion model can be explained by the possibility of hallucinations that the diffusion process has, as can be shown in the examples in <strong>Figure 11</strong>. These are images that were generated by the Roentgen v2 model and, more concerning, successfully passed the attribute check validation.</p>
+<p>By looking at the Fréchet distances (Figure 10), we further understand the differences between both generative models. The VAE model is far more accurate in terms of these distances, generating more reliable and realistic images than the Roentgenv2 model. These high distance values presented by the diffusion model can be explained by the possibility of hallucinations that the diffusion process has, as can be shown in the examples in Figure 11. These are images that were generated by the Roentgenv2 model and, more concerning, successfully passed the attribute check validation.</p>
 <p><img src="./imgs/chexpert_vae_dif_fid.png" class="img-fluid"></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -317,8 +318,13 @@ window.Quarto = {
 <figcaption>Figure 10. Fréchet distance comparison between VAE counterfactual generation and diffusion random sampling using Inceptionv3 (left) and RadDINO (right) embeddings. Results are shown for CheXpert (top) and MIMIC-CXR (bottom) based generations. Lower values indicate better alignment with the original data distribution.</figcaption>
 </figure>
 </div>
-<!-- ![Figure 11. Examples of images generated by Roentgen v2 model showing hallucinations that can appear using these types of models. All these images successfully passed the attribute check validation.](./imgs/roentgen_hallucinations.png) -->
-<p>The UMAP projections of the diffusion-generated images show how limited the representation can be compared to the VAE-generated images (<strong>Figure 12</strong>).</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="./imgs/roentgen_hallucinations.png" class="img-fluid figure-img"></p>
+<figcaption>Figure 11. Examples of images generated by Roentgenv2 model showing hallucinations that can appear using these types of models. All these images successfully passed the attribute check validation.</figcaption>
+</figure>
+</div>
+<p>The UMAP projections of the diffusion-generated images show how limited the representation can be compared to the VAE-generated images (Figure 12).</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/chexpert_vae_dif_density.png" class="img-fluid figure-img"></p>
@@ -329,14 +335,14 @@ window.Quarto = {
 </section>
 <section id="ddim" class="level2">
 <h2 class="anchored" data-anchor-id="ddim">DDIM</h2>
-<p>While the Roentgen v2 diffusion model generates images through random sampling from noise, losing the connection to the original image structure, the DDIM (Denoising Diffusion Implicit Models) inversion approach offers a middle ground that combines the high visual fidelity of the diffusion model with the counterfactual nature of the VAE approach. This method enables us to generate variations that preserve more structural information from the original image while still leveraging the powerful generative capabilities of the Roentgen v2 model.</p>
+<p>While the Roentgenv2 diffusion model generates images through random sampling from noise, losing the connection to the original image structure, the DDIM (Denoising Diffusion Implicit Models) inversion approach offers a middle ground that combines the high visual fidelity of the diffusion model with the counterfactual nature of the VAE approach. This method enables us to generate variations that preserve more structural information from the original image while still leveraging the powerful generative capabilities of the Roentgenv2 model.</p>
 <p>The DDIM inversion process works in two main stages:</p>
 <ol type="1">
 <li><p><strong>Inversion (Encoding to latent noise)</strong>: Starting from a real image <span class="math inline">X</span> from the original dataset, we reverse the diffusion process to obtain a latent noise representation <span class="math inline">z_0</span>. Unlike standard diffusion sampling that starts from pure random noise, DDIM inversion uses a deterministic process to trace back the specific noise configuration that would have generated an image similar to the input. This step essentially <em>encodes</em> the structural and anatomical information of the original patient into the latent space. The inversion is performed using the original image prompt (with the unmodified demographic attributes) to guide the reverse process.</p></li>
 <li><p><strong>Conditional generation (Decoding with intervention)</strong>: Once we have the inverted latent representation <span class="math inline">z_0</span>, we perform the forward diffusion sampling process, but now using a modified prompt with the intervened attribute, denoted as <code>do(attribute=value')</code>. The key insight is that by starting from the inverted noise rather than random noise, the generation process preserves the overall anatomical structure and specific patient characteristics from the original image, while the modified prompt guides the model to alter only the visual features associated with the target demographic attribute.</p></li>
 </ol>
 <p>This approach offers several advantages over pure random sampling: the generated counterfactuals maintain stronger anatomical coherence with the source image, preserve patient-specific details unrelated to the intervened attribute, and produce more consistent counterfactuals across different intervention attempts. However, the quality and faithfulness of the counterfactuals depend critically on two hyperparameters: the number of inversion steps and the classifier-free guidance scale, which controls the strength of the text conditioning during generation.</p>
-<p>We evaluated different configurations of these parameters to find the optimal balance between preserving the original image structure and successfully implementing the demographic intervention. The DDIM approach produces counterfactuals that are visually closer to the original image compared to random sampling, while still achieving successful attribute transformations. As shown in <strong>Figure 13</strong>, different guidance scales (7.5 vs 15.5) produce different levels of attribute modification, with higher values creating more pronounced changes.</p>
+<p>We evaluated different configurations of these parameters to find the optimal balance between preserving the original image structure and successfully implementing the demographic intervention. The DDIM approach produces counterfactuals that are visually closer to the original image compared to random sampling, while still achieving successful attribute transformations. As shown in Figure 13, different guidance scales (7.5 vs 15.5) produce different levels of attribute modification, with higher values creating more pronounced changes.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/chexpert_ddim_comparison.png" class="img-fluid figure-img"></p>
@@ -345,7 +351,7 @@ window.Quarto = {
 </div>
 <section id="attribute-check-2" class="level3">
 <h3 class="anchored" data-anchor-id="attribute-check-2">Attribute Check</h3>
-<p>The results in <strong>Figure 14</strong> show that the DDIM process has a more equal success rate across the different groups, but overall is lower than for VAE and Diffusion models. It is worth noticing that it was the best-performing model on the <em>Asian</em> target group.</p>
+<p>The results in Figure 14 show that the DDIM process has a more equal success rate across the different groups, but overall is lower than for VAE and Diffusion models. It is worth noticing that it was the best-performing model on the <em>Asian</em> target group.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/vae_dif_ddim_check.png" class="img-fluid figure-img"></p>
@@ -355,7 +361,7 @@ window.Quarto = {
 </section>
 <section id="image-quality-2" class="level3">
 <h3 class="anchored" data-anchor-id="image-quality-2">Image Quality</h3>
-<p>The Fréchet distance results (<strong>Figure 15</strong>) demonstrate that DDIM achieves intermediate performance between VAE and pure diffusion sampling. While not matching the VAE’s distributional alignment, DDIM substantially improves upon random diffusion sampling by leveraging the original image structure through inversion. The UMAP visualizations (<strong>Figure 16</strong>) further illustrate how DDIM-generated images occupy an intermediate position in the latent space, showing better overlap with real images than diffusion sampling but slightly less than VAE counterfactuals.</p>
+<p>The Fréchet distance results (Figure 15) demonstrate that DDIM achieves intermediate performance between VAE and pure diffusion sampling. While not matching the VAE’s distributional alignment, DDIM substantially improves upon random diffusion sampling by leveraging the original image structure through inversion. The UMAP visualizations (Figure 16) further illustrate how DDIM-generated images occupy an intermediate position in the latent space, showing better overlap with real images than diffusion sampling but slightly less than VAE counterfactuals.</p>
 <p><img src="./imgs/chexpert_vae_dif_ddim_fid.png" class="img-fluid"></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -369,9 +375,22 @@ window.Quarto = {
 <figcaption>Figure 16. UMAP projection visualizations comparing the latent space distributions of original CheXpert images (blue) versus all three generative approaches (red) across three different embedding spaces: sex prediction model from attribute check (top), Inceptionv3 (middle), and RadDINO (bottom). Closer overlap between distributions indicates better generation quality and realism. Each plot shows how well the synthetic images capture the statistical properties of the original dataset in different feature representations.</figcaption>
 </figure>
 </div>
-
-
 </section>
+</section>
+<section id="references" class="level2">
+<h2 class="anchored" data-anchor-id="references">References</h2>
+<p>[1] Cohen, Joseph Paul, et al.&nbsp;“TorchXRayVision: A library of chest X-ray datasets and models.” arXiv, 2021, <a href="https://arxiv.org/abs/2111.00595">https://arxiv.org/abs/2111.00595</a>.</p>
+<p>[2] Ribeiro, Fabio De Sousa, et al.&nbsp;“High Fidelity Image Counterfactuals with Probabilistic Causal Models.” arXiv, 2023, <a href="https://arxiv.org/abs/2306.15764">https://arxiv.org/abs/2306.15764</a>.</p>
+<p>[3] Moroianu, Stefania L., et al.&nbsp;“Improving Performance, Robustness, and Fairness of Radiographic AI Models with Finely-Controllable Synthetic Data.” arXiv, 2025, <a href="https://arxiv.org/abs/2508.16783">https://arxiv.org/abs/2508.16783</a>.</p>
+<p>[4] Song, Jiaming, et al.&nbsp;“Denoising Diffusion Implicit Models.” arXiv, 2022, <a href="https://arxiv.org/abs/2010.02502">https://arxiv.org/abs/2010.02502</a>.</p>
+<p>[5] Lim, Bee, et al.&nbsp;“Enhanced Deep Residual Networks for Single Image Super-Resolution.” arXiv, 2017, <a href="https://arxiv.org/abs/1707.02921">https://arxiv.org/abs/1707.02921</a>.</p>
+<p>[6] Irvin, Jeremy, et al.&nbsp;“CheXpert: A Large Chest Radiograph Dataset with Uncertainty Labels and Expert Comparison.” arXiv, 2019, <a href="https://arxiv.org/abs/1901.07031">https://arxiv.org/abs/1901.07031</a>.</p>
+<p>[7] Johnson, A. E. W., et al.&nbsp;“MIMIC-CXR, a De-identified Publicly Available Database of Chest Radiographs with Free-text Reports.” Scientific Data, vol.&nbsp;6, 2019, <a href="https://doi.org/10.1038/s41597-019-0322-0">https://doi.org/10.1038/s41597-019-0322-0</a>.</p>
+<p>[8] Heusel, Martin, et al.&nbsp;“GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium.” arXiv, 2018, <a href="https://arxiv.org/abs/1706.08500">https://arxiv.org/abs/1706.08500</a>.</p>
+<p>[9] Szegedy, Christian, et al.&nbsp;“Rethinking the Inception Architecture for Computer Vision.” arXiv, 2015, <a href="https://arxiv.org/abs/1512.00567">https://arxiv.org/abs/1512.00567</a>.</p>
+<p>[10] Pérez-García, F., et al.&nbsp;“Exploring Scalable Medical Image Encoders Beyond Text Supervision.” Nature Machine Intelligence, vol.&nbsp;7, 2025, pp.&nbsp;119-130, <a href="https://doi.org/10.1038/s42256-024-00965-w">https://doi.org/10.1038/s42256-024-00965-w</a>.</p>
+
+
 </section>
 
 </main> <!-- /main -->
