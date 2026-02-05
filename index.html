@@ -208,7 +208,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="synthetic-generation">Synthetic Generation</h2>
 <p>We first extracted demographic attributes (sex, race, and age) and clinical findings from each sample in the original dataset to construct a structured textual description. This text serves a dual purpose: it functions as a comprehensive image descriptor and acts as a conditioning prompt for generative models utilizing text encoders. Hereafter, we refer to this description as the “image prompt,” noting that it represents the semantic basis for generation even when not strictly used as a direct input for all architectures.</p>
 <p>To generate specific variations, we applied interventions to the original prompts, modifying one attribute at a time. Adopting the notation of causal intervention, these shifts are denoted as <code>do(attribute=value)</code>. Examples of these shifts can be seen in Figure 1. This approach yields five distinct variation groups (three for race and two for sex). For each target variation, we aimed to generate 1,000 synthetic images. Crucially, the source images for these generations were sampled exclusively from groups disjoint from the target class, ensuring that all synthetic outputs represent a true modification of the original demographic attribute.</p>
-<p>The fidelity of the generated images was assessed using three independent classifiers, one for each demographic attribute <a href="#references">[1]</a>. A synthetic image is considered successfully generated only if it satisfies two conditions: (1) the target intervention is correctly predicted, and (2) all non-intervened attributes remain consistent with the original image. If any attribute fails this check, the generation is retried up to three times. If the prediction fails after three attempts, the prompt is discarded. This validation process is referred to as the <em>Attribute Check</em> module. Consequently, the final dataset size depends on the acceptance rate of this validation step, with a theoretical maximum of 5,000 images (5 groups × 1k samples). We evaluated this pipeline across three generative architectures: a Variational Autoencoder (VAE) producing counterfactuals <a href="#references">[2]</a>, a diffusion model fine-tuned on MIMIC-CXR (Roentgenv2 <a href="#references">[3]</a>), and a DDIM inversion scheme applied to the counterfactual version of the latter <a href="#references">[4]</a>. An overview of the pipeline used in this work can be seen below.</p>
+<p>The fidelity of the generated images was assessed using three independent classifiers, one for each demographic attribute <a href="#references">[1]</a>. A synthetic image is considered successfully generated only if it satisfies two conditions: (1) the target intervention is correctly predicted, and (2) all non-intervened attributes remain consistent with the original image. If any attribute fails this check, the generation is retried up to three times. If the prediction fails after three attempts, the prompt is discarded. This validation process is referred to as the <em>Attribute Check</em> module. Consequently, the final dataset size depends on the acceptance rate of this validation step, with a theoretical maximum of 5,000 images (5 groups × 1,000 samples). We evaluated this pipeline across three generative architectures: a Variational Autoencoder (VAE) producing counterfactuals <a href="#references">[2]</a>, a diffusion model fine-tuned on MIMIC-CXR (Roentgenv2 <a href="#references">[3]</a>), and a DDIM inversion scheme applied to the Roentgenv2 model <a href="#references">[4]</a>. An overview of the pipeline used in this work can be seen below.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/pipeline_original.png" class="img-fluid figure-img"></p>
@@ -255,7 +255,7 @@ window.Quarto = {
 <p>First, we applied simple upscaling using LANCZOS interpolation to 512×512 resolution (the same resolution that the Roentgenv2 diffusion model uses), followed by a 3× super-resolution upscaling to 576×576 using the EDSR model <a href="#references">[5]</a>.</p>
 <section id="attribute-check" class="level3">
 <h3 class="anchored" data-anchor-id="attribute-check">Attribute Check</h3>
-<p>As noted before, the attribute check consists of three independent models trained for sex and race classification and age regression. In this module of the pipeline, a generated image goes through each model obtaining a prediction for the three attributes. One of these attributes is the one that is being shifted (denoted as <em>target group</em>). If all three attributes are predicted correctly on the synthetic image then it will be part of the new dataset and it will count toward the percentage passed attribute check. In Figure 4 the attribute check results for each target group are shown for the VAE model and the different types of upscaling and for images generated from CheXpert <a href="#references">[6]</a> and MIMIC-CXR <a href="#references">[7]</a> metadata.</p>
+<p>As noted before, the attribute check consists of three independent models trained for sex and race classification and age regression. In this module of the pipeline, a generated image goes through each model, obtaining a prediction for the three attributes. One of these attributes is the one being shifted (denoted as the <em>target group</em>). If all three attributes are predicted correctly on the synthetic image, then it will be part of the new dataset and will count toward the percentage of images that passed the attribute check. In Figure 4 the attribute check results for each target group are shown for the VAE model and the different types of upscaling and for images generated from CheXpert <a href="#references">[6]</a> and MIMIC-CXR <a href="#references">[7]</a> metadata.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/all_vae_check.png" class="img-fluid figure-img"></p>
@@ -284,14 +284,14 @@ window.Quarto = {
 </section>
 <section id="diffusion" class="level2">
 <h2 class="anchored" data-anchor-id="diffusion">Diffusion</h2>
-<p>Differing from the VAE model where we applied direct counterfactuals to the original image, in this approach we focus on generating images by random sampling from noise. For this, we use the Roentgenv2 model that was trained specifically for medical image generation by fine-tuning Stable Diffusion with samples from MIMIC-CXR. The architecture of this model can be seen in Figure 7.</p>
+<p>Unlike the VAE model, where we applied direct counterfactuals to the original image, this approach focuses on generating images through random sampling from noise. For this purpose, we use the Roentgenv2 model, which was trained specifically for medical image generation by fine-tuning Stable Diffusion with samples from MIMIC-CXR. The architecture of this model can be seen in Figure 7.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/roentgen_architecture.png" class="img-fluid figure-img"></p>
 <figcaption>Figure 7. Architecture of the Roentgenv2 model, a fine-tuned version of Stable Diffusion specifically adapted for chest X-ray generation using the MIMIC-CXR dataset. The model uses text conditioning to guide the diffusion process from random noise to realistic medical images.</figcaption>
 </figure>
 </div>
-<p>Every image is generated by random sampling from noise, with the generation process primarily driven by the text prompt. This means that only the metadata from the original dataset is used, not the image itself. Multiple generations with the same prompt can produce different final states, resulting in diverse new images. As can be seen in the synthetic examples in Figure 8, the generated images are completely different from the original image since the original is not used during the generative process, resulting in very significant visual differences.</p>
+<p>Every image is generated through random sampling from noise, with the generation process primarily driven by the text prompt. This means that only the metadata from the original dataset is used, not the image itself. Multiple generations with the same prompt can produce different final states, resulting in diverse new images. As demonstrated in Figure 8, the generated images are visually distinct from the original images since the generative process does not preserve patient-specific anatomical features. This fundamental difference from the VAE counterfactual approach means that while demographic attributes can be controlled, the anatomical structure and specific characteristics of the original patient are not maintained.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/chexpert_dif_comparison.png" class="img-fluid figure-img"></p>
@@ -300,7 +300,7 @@ window.Quarto = {
 </div>
 <section id="attribute-check-1" class="level3">
 <h3 class="anchored" data-anchor-id="attribute-check-1">Attribute Check</h3>
-<p>The attribute check validation results show that the VAE-generated images have an overall higher success rate (Figure 9). The most significant discrepancy comes from the <em>Asian</em> target group, where the VAE struggles more than the diffusion model. It is worth noticing that even though the Roentgenv2 model was trained using the MIMIC-CXR images, it has a lower success rate on this dataset than the VAE model. This suggests that the latter model has better generalization for image generation.</p>
+<p>The attribute check validation results show that VAE-generated images have an overall higher success rate (Figure 9). The most significant discrepancy comes from the <em>Asian</em> target group, where the VAE struggles more than the diffusion model. It is worth noting that even though the Roentgenv2 model was trained using MIMIC-CXR images, it has a lower success rate on this dataset than the VAE model. This suggests that the VAE model has better generalization capabilities for image generation.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/vae_dif_check.png" class="img-fluid figure-img"></p>
@@ -310,7 +310,7 @@ window.Quarto = {
 </section>
 <section id="image-quality-1" class="level3">
 <h3 class="anchored" data-anchor-id="image-quality-1">Image Quality</h3>
-<p>By looking at the Fréchet distances (Figure 10), we further understand the differences between both generative models. The VAE model is far more accurate in terms of these distances, generating more reliable and realistic images than the Roentgenv2 model. These high distance values presented by the diffusion model can be explained by the possibility of hallucinations that the diffusion process has, as can be shown in the examples in Figure 11. These are images that were generated by the Roentgenv2 model and, more concerning, successfully passed the attribute check validation.</p>
+<p>By examining the Fréchet distances (Figure 10), we gain further insight into the differences between both generative models. The VAE model achieves significantly lower distances, generating more reliable and realistic images than the Roentgenv2 model. These high distance values presented by the diffusion model can be attributed to hallucinations—unrealistic artifacts or anatomical inconsistencies that can appear during the diffusion generation process. Examples of such hallucinations are shown in Figure 11. More concerningly, these images successfully passed the attribute check validation, suggesting that the validation process can avoid completely image quality and anatomical plausibility.</p>
 <p><img src="./imgs/chexpert_vae_dif_fid.png" class="img-fluid"></p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -351,7 +351,7 @@ window.Quarto = {
 </div>
 <section id="attribute-check-2" class="level3">
 <h3 class="anchored" data-anchor-id="attribute-check-2">Attribute Check</h3>
-<p>The results in Figure 14 show that the DDIM process has a more equal success rate across the different groups, but overall is lower than for VAE and Diffusion models. It is worth noticing that it was the best-performing model on the <em>Asian</em> target group.</p>
+<p>The results in Figure 14 show that the DDIM approach achieves a more balanced success rate across the different demographic groups, though the overall performance is lower than both VAE and diffusion models. Notably, DDIM was the best-performing model on the <em>Asian</em> target group, suggesting that the inversion-based approach may be particularly effective for certain demographic transformations.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./imgs/vae_dif_ddim_check.png" class="img-fluid figure-img"></p>
@@ -375,6 +375,13 @@ window.Quarto = {
 <figcaption>Figure 16. UMAP projection visualizations comparing the latent space distributions of original CheXpert images (blue) versus all three generative approaches (red) across three different embedding spaces: sex prediction model from attribute check (top), Inceptionv3 (middle), and RadDINO (bottom). Closer overlap between distributions indicates better generation quality and realism. Each plot shows how well the synthetic images capture the statistical properties of the original dataset in different feature representations.</figcaption>
 </figure>
 </div>
+<p>To provide a more comprehensive evaluation of generation quality, we computed the coverage and density metrics <a href="#references">[11]</a> for both Inceptionv3 and RadDINO embeddings (Figure 17). Coverage measures the proportion of real data modes captured by the generated samples, while density assesses whether the generated samples are concentrated in high-density regions of the real data distribution. The results clearly show that VAE-generated images achieve substantially better coverage and density scores compared to both the diffusion and DDIM approaches, indicating that VAE counterfactuals more faithfully represent the diversity and distribution of the original dataset.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="./imgs/chexpert_vae_dif_ddim_prdc.png" class="img-fluid figure-img"></p>
+<figcaption>Figure 17. Coverage and density for Inceptionv3 and RadDINO for the different generative models. A greater value indicates that the images cover better the original space.</figcaption>
+</figure>
+</div>
 </section>
 </section>
 <section id="references" class="level2">
@@ -389,6 +396,7 @@ window.Quarto = {
 <p>[8] Heusel, Martin, et al.&nbsp;“GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium.” arXiv, 2018, <a href="https://arxiv.org/abs/1706.08500">https://arxiv.org/abs/1706.08500</a>.</p>
 <p>[9] Szegedy, Christian, et al.&nbsp;“Rethinking the Inception Architecture for Computer Vision.” arXiv, 2015, <a href="https://arxiv.org/abs/1512.00567">https://arxiv.org/abs/1512.00567</a>.</p>
 <p>[10] Pérez-García, F., et al.&nbsp;“Exploring Scalable Medical Image Encoders Beyond Text Supervision.” Nature Machine Intelligence, vol.&nbsp;7, 2025, pp.&nbsp;119-130, <a href="https://doi.org/10.1038/s42256-024-00965-w">https://doi.org/10.1038/s42256-024-00965-w</a>.</p>
+<p>[11] Naeem, Muhammad Ferjad, et al.&nbsp;“Reliable Fidelity and Diversity Metrics for Generative Models.” arXiv, 2020, <a href="https://arxiv.org/abs/2002.09797">https://arxiv.org/abs/2002.09797</a>.</p>
 
 
 </section>
